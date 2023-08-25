@@ -19,7 +19,7 @@ struct GreetEventRes {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Deserialize)]
-struct GenericEventRes {
+pub struct GenericEventRes {
     num: u16,
     message: String,
 }
@@ -127,7 +127,11 @@ pub fn SimpleCounter(cx: Scope, name: String) -> impl IntoView {
     let emit_event_action = create_action(cx, |num: &u16| emit_generic_event(*num));
     create_local_resource(cx, move || set_event_vec, listen_on_generic_event);
     // Greet command response.
-    let msg = create_local_resource(cx, move || name.to_owned(), greet);
+    let greet_resource = create_local_resource(cx, move || name.to_owned(), greet);
+    let (msg, set_msg) = create_signal(cx, "".to_string());
+    create_effect(cx, move |_| {
+        set_msg.set(greet_resource.read(cx).unwrap_or_else(|| "".to_string()));
+    });
 
     view! { cx,
         <div>

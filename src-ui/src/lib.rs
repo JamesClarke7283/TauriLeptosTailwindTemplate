@@ -53,10 +53,9 @@ async fn listen_on_generic_event(event_writer: WriteSignal<Vec<GenericEventRes>>
     }
 }
 
-
 #[component]
-pub fn Counter(cx: Scope, value: ReadSignal<i32>, set_value: WriteSignal<i32>) -> impl IntoView {
-    view! { cx,
+pub fn Counter(value: ReadSignal<i32>, set_value: WriteSignal<i32>) -> impl IntoView {
+    view! {
         <div>
             <button on:click=move |_| set_value.set(0)>"Clear"</button>
             <button on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
@@ -66,10 +65,9 @@ pub fn Counter(cx: Scope, value: ReadSignal<i32>, set_value: WriteSignal<i32>) -
     }
 }
 
-
 #[component]
-pub fn Greeting(cx: Scope, msg: ReadSignal<String>, greet_event_msg: ReadSignal<String>) -> impl IntoView {
-    view! { cx,
+pub fn Greeting(msg: ReadSignal<String>, greet_event_msg: ReadSignal<String>) -> impl IntoView {
+    view! {
         <div>
             <p>{msg}</p>
             <p>{greet_event_msg}</p>
@@ -79,13 +77,12 @@ pub fn Greeting(cx: Scope, msg: ReadSignal<String>, greet_event_msg: ReadSignal<
 
 #[component]
 pub fn GenericEvents(
-    cx: Scope,
     event_vec: ReadSignal<Vec<GenericEventRes>>,
     emit_event_action: Action<u16, ()>,
     event_counter: ReadSignal<u16>,
     set_event_counter: WriteSignal<u16>,
 ) -> impl IntoView {
-    view! { cx,
+    view! {
         <div>
             <button on:click=move |_| {
                 emit_event_action.dispatch(event_counter.get());
@@ -93,47 +90,45 @@ pub fn GenericEvents(
             }>"Emit generic event"</button>
 
             <ul>
-            <For each=move || event_vec.get().clone() key=|e| e.num view=move |_, e: GenericEventRes| {
-                view! { cx,
+            <For each=move || event_vec.get().clone() key=|e| e.num  view=move |e: GenericEventRes| {
+                view! {
                     <li>{e.message.clone()}</li>
                 }
             } />
-       
+
             </ul>
         </div>
     }
 }
 
-
-
 #[component]
-pub fn SimpleCounter(cx: Scope, name: String) -> impl IntoView {
-    let (value, set_value) = create_signal(cx, 0);
+pub fn SimpleCounter(name: String) -> impl IntoView {
+    let (value, set_value) = create_signal(0);
     // Greet event, will clean-up once event is received.
     let (greet_event_msg, set_greet_event_msg) =
-        create_signal(cx, "No `greet-event` from Tauri.".to_string());
-    let greet_event_resource = create_local_resource(cx, move || (), |_| listen_on_greet_event());
-    let greet_event_msg_memo = create_memo(cx, move |_| {
+        create_signal("No `greet-event` from Tauri.".to_string());
+    let greet_event_resource = create_local_resource(move || (), |_| listen_on_greet_event());
+    let greet_event_msg_memo = create_memo(move |_| {
         set_greet_event_msg.set(
             greet_event_resource
-                .read(cx)
+                .read()
                 .unwrap_or("Waiting for `greet-event` from Tauri.".to_string()),
         );
     });
-    create_effect(cx, move |_| greet_event_msg_memo);
+    create_effect(move |_| greet_event_msg_memo);
     // Generic event, listening constantly.
-    let (event_counter, set_event_counter) = create_signal(cx, 1u16);
-    let (event_vec, set_event_vec) = create_signal::<Vec<GenericEventRes>>(cx, vec![]);
-    let emit_event_action = create_action(cx, |num: &u16| emit_generic_event(*num));
-    create_local_resource(cx, move || set_event_vec, listen_on_generic_event);
+    let (event_counter, set_event_counter) = create_signal(1u16);
+    let (event_vec, set_event_vec) = create_signal::<Vec<GenericEventRes>>(vec![]);
+    let emit_event_action = create_action(|num: &u16| emit_generic_event(*num));
+    create_local_resource(move || set_event_vec, listen_on_generic_event);
     // Greet command response.
-    let greet_resource = create_local_resource(cx, move || name.to_owned(), greet);
-    let (msg, set_msg) = create_signal(cx, "".to_string());
-    create_effect(cx, move |_| {
-        set_msg.set(greet_resource.read(cx).unwrap_or_else(|| "".to_string()));
+    let greet_resource = create_local_resource(move || name.to_owned(), greet);
+    let (msg, set_msg) = create_signal("".to_string());
+    create_effect(move |_| {
+        set_msg.set(greet_resource.read().unwrap_or_else(|| "".to_string()));
     });
 
-    view! { cx,
+    view! {
         <div>
             <Counter value=value set_value=set_value />
             <Greeting msg=msg greet_event_msg=greet_event_msg />

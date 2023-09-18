@@ -35,12 +35,15 @@ cargo install --locked wasm-bindgen-cli
 
 # `esbuild` as dependency of `tauri-sys` crate (used in UI)
 npm install --global --save-exact esbuild
+
+# Optional: `tailwindcss` for UI styling
+npm install --global tailwindcss
 ```
 
 ## Credits
 
-All credit for the counter example in [`./src-ui/src/lib.rs`](src-ui/src/lib.rs) goes to 
-authors and contributors of [gbj/leptos][leptos_repo] GitHub repository, 
+All credit for the counter example in [`./src-ui/src/lib.rs`](src-ui/src/lib.rs)
+goes to authors and contributors of [gbj/leptos][leptos_repo] GitHub repository,
 [MIT License][leptos_license], Copyright 2022 Greg Johnston.
 
 [tauri_web]: https://tauri.app/

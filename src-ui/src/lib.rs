@@ -90,7 +90,7 @@ pub fn GenericEvents(
             }>"Emit generic event"</button>
 
             <ul>
-            <For each=move || event_vec.get().clone() key=|e| e.num  view=move |e: GenericEventRes| {
+            <For each=move || event_vec.get().clone() key=|e| e.num  children=move |e: GenericEventRes| {
                 view! {
                     <li>{e.message.clone()}</li>
                 }
@@ -111,7 +111,7 @@ pub fn SimpleCounter(name: String) -> impl IntoView {
     let greet_event_msg_memo = create_memo(move |_| {
         set_greet_event_msg.set(
             greet_event_resource
-                .read()
+                .get()
                 .unwrap_or("Waiting for `greet-event` from Tauri.".to_string()),
         );
     });
@@ -125,7 +125,7 @@ pub fn SimpleCounter(name: String) -> impl IntoView {
     let greet_resource = create_local_resource(move || name.to_owned(), greet);
     let (msg, set_msg) = create_signal("".to_string());
     create_effect(move |_| {
-        set_msg.set(greet_resource.read().unwrap_or_else(|| "".to_string()));
+        set_msg.set(greet_resource.get().unwrap_or_else(|| "".to_string()));
     });
 
     view! {

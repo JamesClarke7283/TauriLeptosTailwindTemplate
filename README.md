@@ -22,7 +22,7 @@ cargo tauri build
 cargo install --locked tauri-cli
 
 # Rust nightly (required by Leptos)
-rustup toolchain install nightly --allow-downgrade
+rustup toolchain install stable --allow-downgrade
 
 # WASM target
 rustup target add wasm32-unknown-unknown

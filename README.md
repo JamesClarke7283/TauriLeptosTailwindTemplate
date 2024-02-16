@@ -1,11 +1,9 @@
-# tauri-leptos-example
+# Tauri Leptos Example (With TailwindCSS)
 
 - [Tauri][tauri_web]
 - [Leptos][leptos_repo]
 
 See [Prerequisites](#prerequisites) section.
-
-Requires Rust nightly. See Leptos [`nightly` note][leptos_nightly_note].
 
 ```sh
 # Build and develop for desktop

@@ -22,7 +22,7 @@ fn greet(window: Window, name: &str) -> String {
     // Events should be emitted from `Window` object only.
     // `tauri-sys` expects window name to be part of event payload.
     window
-        .emit_all(
+        .emit(
             "greet-event",
             GreetEvent {
                 greeting: format!("Hey {}, this message has been sent from Tauri event.", name),
@@ -36,7 +36,7 @@ fn greet(window: Window, name: &str) -> String {
 #[tauri::command]
 fn emit_event(window: Window, num: u16) {
     window
-        .emit_all(
+        .emit(
             "generic-event",
             GenericEvent {
                 num,

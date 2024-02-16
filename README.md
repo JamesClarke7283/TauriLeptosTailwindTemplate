@@ -40,6 +40,20 @@ npm install --global --save-exact esbuild
 npm install --global tailwindcss
 ```
 
+## Running
+
+### Run in Dev mode
+
+```bash
+cargo tauri dev
+```
+
+### Build in Production
+
+```bash
+cargo tauri build
+```
+
 ## Credits
 
 All credit for the counter example in [`./src-ui/src/lib.rs`](src-ui/src/lib.rs)

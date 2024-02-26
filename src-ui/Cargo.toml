@@ -19,9 +19,6 @@ tauri-wasm = { git = "https://github.com/p1mo/tauri-wasm", features = [
   "plugin-all", # for all plugin bindings. should you do this? no.
 ] }
 
-tauri-sys = { git = "https://github.com/JonasKruckenberg/tauri-sys", rev = "55fe1d1", features = [
-  "all",
-] }
 futures = "0.3"
 
 [dev-dependencies]

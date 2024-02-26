@@ -19,8 +19,6 @@ struct GenericEvent {
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
 fn greet(window: Window, name: &str) -> String {
-    // Events should be emitted from `Window` object only.
-    // `tauri-sys` expects window name to be part of event payload.
     window
         .emit(
             "greet-event",

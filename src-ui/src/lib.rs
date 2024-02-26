@@ -1,7 +1,8 @@
 use futures::StreamExt;
 use leptos::*;
 use serde::{Deserialize, Serialize};
-use tauri_sys::{event, tauri};
+use tauri_wasm::api::core::invoke;
+use tauri_wasm::api::event;
 
 #[derive(Serialize)]
 struct GreetCmdArgs {
@@ -25,7 +26,7 @@ pub struct GenericEventRes {
 }
 
 async fn greet(name: String) -> String {
-    tauri::invoke("greet", &GreetCmdArgs { name })
+    invoke("greet", &GreetCmdArgs { name })
         .await
         .unwrap()
 }
@@ -37,7 +38,7 @@ async fn listen_on_greet_event() -> String {
 }
 
 async fn emit_generic_event(num: u16) {
-    tauri::invoke::<_, ()>("emit_event", &EmitEventCmdArgs { num })
+    invoke::<_, ()>("emit_event", &EmitEventCmdArgs { num })
         .await
         .unwrap();
 }

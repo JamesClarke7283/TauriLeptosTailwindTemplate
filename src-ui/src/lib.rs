@@ -57,24 +57,43 @@ async fn listen_on_generic_event(event_writer: WriteSignal<Vec<GenericEventRes>>
 #[component]
 pub fn Counter(value: ReadSignal<i32>, set_value: WriteSignal<i32>) -> impl IntoView {
     view! {
-        <div>
-            <button on:click=move |_| set_value.set(0)>"Clear"</button>
-            <button on:click=move |_| set_value.update(|value| *value -= 1)>"-1"</button>
-            <span>"Value: " {move || value.get().to_string()} "!"</span>
-            <button on:click=move |_| set_value.update(|value| *value += 1)>"+1"</button>
+        <div class="flex items-center space-x-4 p-4"> 
+            <button 
+                on:click=move |_| set_value.set(0) 
+                class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-md"
+            >
+                "Clear"
+            </button>
+            <button 
+                on:click=move |_| set_value.update(|value| *value -= 1) 
+                class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-md"
+            >
+                "-1"
+            </button>
+            <span class="text-xl font-bold">
+                "Value: " {move || value.get().to_string()} "!"
+            </span>
+            <button
+                on:click=move |_| set_value.update(|value| *value += 1) 
+                class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-md"
+            >
+                "+1"
+            </button>
         </div>
     }
 }
 
+
 #[component]
 pub fn Greeting(msg: ReadSignal<String>, greet_event_msg: ReadSignal<String>) -> impl IntoView {
     view! {
-        <div>
-            <p>{msg}</p>
-            <p>{greet_event_msg}</p>
+        <div class="p-4"> 
+            <p class="text-lg">{msg}</p>
+            <p class="italic">{greet_event_msg}</p>
         </div>
     }
 }
+
 
 #[component]
 pub fn GenericEvents(
@@ -84,23 +103,28 @@ pub fn GenericEvents(
     set_event_counter: WriteSignal<u16>,
 ) -> impl IntoView {
     view! {
-        <div>
-            <button on:click=move |_| {
-                emit_event_action.dispatch(event_counter.get());
-                set_event_counter.set(event_counter.get() + 1);
-            }>"Emit generic event"</button>
-
-            <ul>
-            <For each=move || event_vec.get().clone() key=|e| e.num  children=move |e: GenericEventRes| {
-                view! {
-                    <li>{e.message.clone()}</li>
+        <div class="p-6 border border-gray-200 rounded-md shadow-sm"> 
+            <button 
+                on:click=move |_| {
+                    emit_event_action.dispatch(event_counter.get());
+                    set_event_counter.set(event_counter.get() + 1);
                 }
-            } />
+                class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-md"
+            >
+                "Emit Generic Event"
+            </button>
 
+            <ul class="list-disc list-inside ml-6 mt-4"> 
+                <For each=move || event_vec.get().clone() key=|e| e.num  children=move |e: GenericEventRes| {
+                    view! {
+                        <li class="my-2">{e.message.clone()}</li> 
+                    }
+                } />
             </ul>
         </div>
     }
 }
+
 
 #[component]
 pub fn SimpleCounter(name: String) -> impl IntoView {
@@ -130,7 +154,7 @@ pub fn SimpleCounter(name: String) -> impl IntoView {
     });
 
     view! {
-        <div>
+        <div class="container mx-auto max-w-md p-8 bg-white rounded-lg shadow-md"> 
             <Counter value=value set_value=set_value />
             <Greeting msg=msg greet_event_msg=greet_event_msg />
             <GenericEvents event_vec=event_vec emit_event_action=emit_event_action event_counter=event_counter set_event_counter=set_event_counter />

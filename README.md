@@ -1,3 +1,6 @@
+![image](https://github.com/JamesClarke7283/TauriLeptosTemplate/assets/78018345/5c66e9c0-b19c-42dc-9019-629450493fe9)
+
+
 # Tauri Leptos Example (With TailwindCSS)
 
 - [Tauri][tauri_web]

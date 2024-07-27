@@ -1,4 +1,4 @@
-use leptos::*;
+use leptos::prelude::*;
 use src_ui::*;
 
 pub fn main() {

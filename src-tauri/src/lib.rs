@@ -3,7 +3,7 @@
     windows_subsystem = "windows"
 )]
 
-use tauri::{Manager, Window};
+use tauri::Window;
 use tauri::Emitter;
 
 #[derive(Clone, serde::Serialize)]

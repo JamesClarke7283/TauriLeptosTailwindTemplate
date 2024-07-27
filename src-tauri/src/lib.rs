@@ -4,6 +4,7 @@
 )]
 
 use tauri::{Manager, Window};
+use tauri::Emitter;
 
 #[derive(Clone, serde::Serialize)]
 struct GreetEvent {

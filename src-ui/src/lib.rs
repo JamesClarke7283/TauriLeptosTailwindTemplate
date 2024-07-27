@@ -132,7 +132,7 @@ pub fn SimpleCounter(name: String) -> impl IntoView {
     // Greet event, will clean-up once event is received.
     let (greet_event_msg, set_greet_event_msg) =
         signal("No `greet-event` from Tauri.".to_string());
-    let greet_event_resource = create_local_resource(move || (), |_| listen_on_greet_event());
+    let greet_event_resource = LocalResource::new(move || (), |_| listen_on_greet_event());
     let greet_event_msg_memo = Memo::new(move |_| {
         set_greet_event_msg.set(
             greet_event_resource
@@ -143,10 +143,10 @@ pub fn SimpleCounter(name: String) -> impl IntoView {
     // Generic event, listening constantly.
     let (event_counter, set_event_counter) = signal(1u16);
     let (event_vec, set_event_vec) = signal::<Vec<GenericEventRes>>(vec![]);
-    let emit_event_action = create_action(|num: &u16| emit_generic_event(*num));
-    create_local_resource(move || set_event_vec, listen_on_generic_event);
+    let emit_event_action = Action::new(|num: &u16| emit_generic_event(*num));
+    LocalResource::new(move || set_event_vec, listen_on_generic_event);
     // Greet command response.
-    let greet_resource = create_local_resource(move || name.to_owned(), greet);
+    let greet_resource = LocalResource::new(move || name.to_owned(), greet);
     let (msg, set_msg) = signal("".to_string());
     Effect::new(move |_| {
         set_msg.set(greet_resource.get().unwrap_or_else(|| "".to_string()));

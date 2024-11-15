@@ -21,9 +21,9 @@ cargo tauri build
 
 ```sh
 # Tauri CLI
-cargo install --locked tauri-cli@2.0.0-beta.22
+cargo install --locked tauri-cli@2.1.0
 
-# Rust nightly (required by Leptos)
+# Rust stable (required by Leptos)
 rustup toolchain install stable --allow-downgrade
 
 # WASM target

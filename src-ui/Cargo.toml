@@ -14,7 +14,7 @@ console_error_panic_hook = "0.1"
 
 serde = { version = "1.0.228", features = ["derive"] }
 serde-wasm-bindgen = "0.6"
-tauri-wasm = { git = "https://github.com/p1mo/tauri-wasm", features = [
+tauri-wasm-rs = { git = "https://github.com/p1mo/tauri-wasm", features = [
   "all",        # for all api bindings
   "plugin-all", # for all plugin bindings. should you do this? no.
 ] }

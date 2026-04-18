@@ -1,8 +1,8 @@
 use futures::StreamExt;
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
-use tauri_wasm::api::core::invoke;
-use tauri_wasm::api::event;
+use tauri_wasm_rs::api::core::invoke;
+use tauri_wasm_rs::api::event;
 
 #[derive(Serialize)]
 struct GreetCmdArgs {

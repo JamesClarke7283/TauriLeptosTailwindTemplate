@@ -73,6 +73,13 @@ jobs:
             patchelf \
             file
 
+      # Defender real-time scanning intermittently locks the NSIS helper
+      # binaries mid-bundle, causing "Access is denied. (os error 5)".
+      - name: Disable Windows Defender real-time monitoring
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: Set-MpPreference -DisableRealtimeMonitoring $true
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:

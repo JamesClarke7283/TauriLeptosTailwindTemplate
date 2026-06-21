@@ -1,0 +1,124 @@
+name: 'release'
+
+# Builds the Tauri app for:
+#   - Linux   x86_64  (native ubuntu-22.04)
+#   - Linux   aarch64 (native ubuntu-22.04-arm, public-repo runner)
+#   - Windows x86_64  (native windows-latest)
+#   - Windows aarch64 (cross-compiled from windows-latest)
+#   - macOS   x86_64  (cross-compiled from macos-latest / Apple silicon)
+#
+# Pushing a tag like `v1.2.3` builds every target and publishes a *draft*
+# GitHub Release with the installers attached. A manual run (workflow_dispatch)
+# just builds and uploads the bundles as workflow artifacts.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+# Required so tauri-action can create the GitHub Release on tag pushes.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x86_64
+            platform: ubuntu-22.04
+            args: ''
+            rust_targets: wasm32-unknown-unknown
+
+          - name: Linux aarch64
+            platform: ubuntu-22.04-arm
+            args: ''
+            rust_targets: wasm32-unknown-unknown
+
+          - name: Windows x86_64
+            platform: windows-latest
+            args: ''
+            rust_targets: wasm32-unknown-unknown
+
+          - name: Windows aarch64
+            platform: windows-latest
+            # Cross-compiled from the x64 runner; NSIS bundles arm64 reliably.
+            args: '--target aarch64-pc-windows-msvc --bundles nsis'
+            rust_targets: wasm32-unknown-unknown,aarch64-pc-windows-msvc
+
+          - name: macOS x86_64
+            platform: macos-latest
+            args: '--target x86_64-apple-darwin'
+            rust_targets: wasm32-unknown-unknown,x86_64-apple-darwin
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Tauri v2 system dependencies (webkit2gtk 4.1, appindicator, etc.).
+      - name: Install Linux dependencies
+        if: startsWith(matrix.platform, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            libgtk-3-dev \
+            patchelf \
+            file
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'npm'
+
+      # The Trunk pre_build hook (Tailwind v4) and the tauri-sys crate need
+      # these on the global npm root; the hook resolves them via NODE_PATH.
+      - name: Install global npm tools (Tailwind + esbuild)
+        run: npm install --global tailwindcss @tailwindcss/cli esbuild
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_targets }}
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          # Workspace target dir lives at the repo root.
+          workspaces: '. -> target'
+          key: ${{ matrix.name }}
+
+      # Trunk bundles the Leptos WASM frontend (runs as Tauri's beforeBuildCommand).
+      - name: Install Trunk
+        uses: taiki-e/install-action@v2
+        with:
+          tool: trunk
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # On a tag push -> create a draft release; otherwise just build.
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          releaseName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+
+      # Always expose the installers as workflow artifacts (handy for manual runs).
+      - name: Upload bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          if-no-files-found: warn
+          path: |
+            target/**/release/bundle/**
+            target/release/bundle/**

@@ -1,0 +1,5 @@
+@import "tailwindcss";
+
+/* Tailwind v4 scans these for class names (replaces tailwind.config.js `content`). */
+@source "./*.html";
+@source "./src/**/*.rs";

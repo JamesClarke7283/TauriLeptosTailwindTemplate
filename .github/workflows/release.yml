@@ -40,14 +40,15 @@ jobs:
 
           - name: Windows x86_64
             platform: windows-latest
-            # NSIS only: WiX/MSI bundling is brittle on CI (and unused here).
-            args: '--bundles nsis'
+            # WiX/MSI: avoids the unsigned nsis_tauri_utils.dll that current
+            # Windows Defender quarantines on CI (tauri-apps/tauri#14882).
+            args: '--bundles msi'
             rust_targets: wasm32-unknown-unknown
 
           - name: Windows aarch64
             platform: windows-latest
-            # Cross-compiled from the x64 runner; NSIS bundles arm64 reliably.
-            args: '--target aarch64-pc-windows-msvc --bundles nsis'
+            # Cross-compiled from the x64 runner; WiX produces the arm64 MSI.
+            args: '--target aarch64-pc-windows-msvc --bundles msi'
             rust_targets: wasm32-unknown-unknown,aarch64-pc-windows-msvc
 
           - name: macOS x86_64

@@ -40,7 +40,8 @@ jobs:
 
           - name: Windows x86_64
             platform: windows-latest
-            args: ''
+            # NSIS only: WiX/MSI bundling is brittle on CI (and unused here).
+            args: '--bundles nsis'
             rust_targets: wasm32-unknown-unknown
 
           - name: Windows aarch64

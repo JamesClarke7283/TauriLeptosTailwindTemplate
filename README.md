@@ -39,7 +39,7 @@ cargo install --locked wasm-bindgen-cli
 npm install --global --save-exact esbuild
 
 # Optional: `tailwindcss` for UI styling
-npm install --global tailwindcss
+npm install --global tailwindcss @tailwindcss/cli
 ```
 
 ## Running

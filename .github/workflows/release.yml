@@ -73,12 +73,16 @@ jobs:
             patchelf \
             file
 
-      # Defender real-time scanning intermittently locks the NSIS helper
-      # binaries mid-bundle, causing "Access is denied. (os error 5)".
-      - name: Disable Windows Defender real-time monitoring
+      # Defender flags the unsigned `nsis_tauri_utils.dll` plugin and locks it
+      # mid-bundle -> "Access is denied. (os error 5)". Disabling real-time
+      # monitoring is silently ignored (Tamper Protection), but admin-added
+      # exclusion paths are honored, so exclude the Tauri tool cache + workspace.
+      - name: Add Windows Defender exclusions for NSIS bundling
         if: runner.os == 'Windows'
         shell: powershell
-        run: Set-MpPreference -DisableRealtimeMonitoring $true
+        run: |
+          Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\tauri"
+          Add-MpPreference -ExclusionPath "${{ github.workspace }}"
 
       - name: Setup Node
         uses: actions/setup-node@v4

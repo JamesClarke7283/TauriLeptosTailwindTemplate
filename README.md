@@ -16,7 +16,7 @@ npm ci
 # Develop for desktop
 npm run tauri -- dev
 
-# Build for desktop
+# Build desktop and Android packages (also iOS on macOS)
 npm run build
 ```
 
@@ -48,6 +48,10 @@ npm install --global tailwindcss @tailwindcss/cli
 Also install the [Tauri system prerequisites](https://v2.tauri.app/start/prerequisites/)
 for your operating system. The npm scripts use the pinned Tauri CLI, including
 support for unsigned iOS builds.
+Install the Android prerequisites below before using the default build command.
+On macOS, also install the iOS prerequisites to generate all three platforms.
+If you prefer `cargo tauri build`, install the matching Cargo CLI with
+`cargo install tauri-cli --version '=2.12.1' --locked`.
 
 ## Running
 
@@ -63,8 +67,19 @@ npm run tauri -- dev
 npm run build
 ```
 
-Tauri builds the Leptos frontend with `trunk build --release` before compiling
-the desktop or mobile application.
+The same build runs with `npm run tauri -- build` or `cargo tauri build`.
+Tauri's build hook builds the Leptos frontend, installs the ARM64 Rust targets,
+and initializes missing native projects. It creates an Android APK and AAB,
+then an unsigned iOS IPA on macOS, before Tauri builds the desktop application.
+The default build uses release mode; `--debug` also applies to the mobile builds.
+
+iOS packaging requires macOS and Xcode. On Linux and Windows, the command
+creates desktop and Android packages and reports that iOS needs macOS.
+The GitHub workflow builds iOS on its macOS runner.
+
+For a desktop-only build without an Android SDK, use
+`TAURI_BUILD_MOBILE=false npm run build` in Bash, or set
+`$env:TAURI_BUILD_MOBILE = 'false'` before building in PowerShell.
 
 ### Android
 
@@ -126,6 +141,8 @@ does not require signing secrets. CI installs the SDKs and Rust targets, then
 initializes each native project before building. The generated projects under
 `src-tauri/gen/` are ignored by this template; keep any native customization in
 version control and update the initialization step if you start maintaining them.
+Desktop CI jobs set `TAURI_BUILD_MOBILE=false` because the mobile jobs create
+their packages separately on the appropriate runners.
 
 ## Credits
 

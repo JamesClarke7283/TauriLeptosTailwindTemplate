@@ -18,7 +18,7 @@
     "withGlobalTauri": true
   },
   "build": {
-    "beforeBuildCommand": "trunk build --release",
+    "beforeBuildCommand": "node scripts/build.mjs",
     "beforeDevCommand": "trunk serve",
     "devUrl": "http://localhost:1420",
     "frontendDist": "../src-ui/dist"

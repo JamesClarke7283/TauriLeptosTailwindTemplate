@@ -112,6 +112,8 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The mobile matrix builds its own packages on the required hosts.
+          TAURI_BUILD_MOBILE: 'false'
         with:
           # On a tag push -> create a draft release; otherwise just build.
           tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}

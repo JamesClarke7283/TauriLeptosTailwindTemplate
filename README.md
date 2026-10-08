@@ -16,6 +16,9 @@ npm ci
 # Develop for desktop
 npm run tauri -- dev
 
+# Create the app's private Android signing key (once, after prerequisites)
+npm run android:signing:init
+
 # Build desktop and Android packages (also iOS on macOS)
 npm run build
 ```
@@ -48,7 +51,8 @@ npm install --global tailwindcss @tailwindcss/cli
 Also install the [Tauri system prerequisites](https://v2.tauri.app/start/prerequisites/)
 for your operating system. The npm scripts use the pinned Tauri CLI, including
 support for unsigned iOS builds.
-Install the Android prerequisites below before using the default build command.
+Install the Android prerequisites and configure signing below before using the
+default release build command.
 On macOS, also install the iOS prerequisites to generate all three platforms.
 If you prefer `cargo tauri build`, install the matching Cargo CLI with
 `cargo install tauri-cli --version '=2.12.1' --locked`.
@@ -92,6 +96,9 @@ With `sdkmanager` on your PATH, install the versions used by CI:
 sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;37.0.0" "ndk;28.2.13676358"
 export NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358"
 
+# Create this app's private release signing key (once)
+npm run android:signing:init
+
 # Generate the native project and install Android Rust targets (once)
 npm run tauri -- android init
 
@@ -99,9 +106,49 @@ npm run tauri -- android init
 npm run build:android -- --ci --target aarch64 --apk --aab
 ```
 
-The outputs are under `src-tauri/gen/android/app/build/outputs/apk/` and
-`src-tauri/gen/android/app/build/outputs/bundle/`. These release bundles are
-unsigned until you configure [Android signing](https://v2.tauri.app/distribute/sign/android/).
+The signed APK and AAB are under `src-tauri/gen/android/app/build/outputs/apk/`
+and `src-tauri/gen/android/app/build/outputs/bundle/`. Install the APK on an
+ARM64 device running Android 7.0 or newer; the AAB is for app distribution tools.
+Android refuses to install unsigned APKs.
+
+Keep Android signing material in the repository's `keys/` folder. The setup
+command creates these private files:
+
+```text
+keys/
+  release.jks        # Persistent Android release signing key
+  credentials.json   # Key alias, key password and keystore password
+```
+
+The entire `keys/` directory is excluded by `.gitignore`; do not commit or share
+these files. Back up both files securely: future updates must use the same key.
+Running `npm run android:signing:init` again preserves an existing key.
+Release builds automatically load these credentials and fail clearly if signing
+is missing. Debug builds use Android's debug signing instead.
+
+If you already have a signing key, put the keystore in `keys/` and set
+`ANDROID_KEYSTORE_PATH` to its path (for example, `keys/release.jks`), along with
+`ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`, and `ANDROID_STORE_PASSWORD`.
+These environment variables override the generated local credentials. See
+[Android signing](https://v2.tauri.app/distribute/sign/android/).
+
+To use the same key in GitHub Actions, authenticate the GitHub CLI (`gh`) and run:
+
+```sh
+npm run android:signing:github
+```
+
+This stores `ANDROID_KEY_BASE64`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`,
+and `ANDROID_STORE_PASSWORD` as Actions secrets in the current repository.
+CI restores the same private keystore for each build; it never generates a new
+signing key. After restoring a backup on another computer, keep both files in
+that checkout's `keys/` folder to sign compatible updates.
+
+If installation still says "App Not Installed", connect the device with USB
+debugging enabled and run `adb install -r /path/to/app.apk` to see the exact
+reason. A signature mismatch means an installed copy uses another key. Use its
+original key to update it; uninstalling that copy removes its app data.
+
 The template starts at version `0.0.1` because Android requires a positive
 version code. Keep the versions in `src-tauri/tauri.conf.json` and
 `src-tauri/Cargo.toml` in sync when releasing.
@@ -135,7 +182,7 @@ The `release` workflow builds all eight platform/architecture combinations:
 | Linux x86_64 and ARM64 | Ubuntu | AppImage, DEB and RPM |
 | Windows x86_64 and ARM64 | Windows | MSI |
 | macOS Intel x86_64 and Apple Silicon ARM64 | macOS | DMG and app archives |
-| Android ARM64 | Ubuntu | Unsigned release APK and AAB |
+| Android ARM64 | Ubuntu | Signed release APK and AAB |
 | iOS ARM64 | macOS with Xcode | Unsigned release IPA |
 
 Run it manually on a branch from the Actions tab to download workflow artifacts,
@@ -145,11 +192,13 @@ succeeds, the final job attaches the APK, AAB and IPA, then automatically
 publishes the completed release. A failed build or upload leaves it unpublished.
 The Intel and Apple Silicon macOS packages have separate architecture names.
 
-Mobile compilation does not require signing secrets. CI installs the SDKs and
-Rust targets, then initializes each native project before building. The generated
-projects under `src-tauri/gen/` are ignored by this template; keep any native
-customization in version control and update the initialization step if you start
-maintaining them.
+Android release builds require the four Actions secrets above. CI reconstructs
+the keystore, signs the APK and AAB, and verifies them before upload. iOS
+compilation uses unsigned packages and does not require signing secrets.
+CI installs the SDKs and Rust targets, then initializes each native project before
+building. The generated projects under `src-tauri/gen/` are ignored by this
+template; keep any native customization in version control and update the
+initialization step if you start maintaining them.
 Desktop CI jobs set `TAURI_BUILD_MOBILE=false` because the mobile jobs create
 their packages separately on the appropriate runners.
 

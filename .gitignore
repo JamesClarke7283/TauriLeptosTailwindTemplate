@@ -28,3 +28,9 @@ tailwind.min.css
 prompt.txt
 
 src-tauri/gen
+
+# Private Android signing key and credentials (back up outside Git).
+keys/
+*.jks
+*.keystore
+keystore.properties

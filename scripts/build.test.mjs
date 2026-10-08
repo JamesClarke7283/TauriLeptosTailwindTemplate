@@ -12,6 +12,7 @@ function capture(options = {}) {
     exists: () => true,
     run: (command, args, env) => commands.push({ command, args, env }),
     log: (message) => messages.push(message),
+    configureAndroid: () => {},
     ...options,
   });
   return { commands, messages };
@@ -67,6 +68,7 @@ test('nested mobile hooks reuse one frontend build and do not recurse', () => {
         run,
         exists: () => true,
         log: () => {},
+        configureAndroid: () => {},
       });
     }
   };
@@ -205,4 +207,52 @@ test('a failed command stops the build and preserves its original failure', () =
     assert.ok(!commands.some(({ args }) => args.includes('ios') || args.includes('aarch64-apple-ios')));
     assert.equal(commands.length, { frontend: 1, toolchain: 2, init: 3, 'android-build': 4 }[failAt]);
   }
+});
+
+test('a direct Android release hook configures signing before building its frontend', () => {
+  const env = { TAURI_ENV_PLATFORM: 'android', ANDROID_KEY_ALIAS: 'release' };
+  const events = [];
+  capture({
+    env,
+    configureAndroid: (options) => {
+      assert.equal(options.env, env);
+      events.push('signing');
+    },
+    run: (command) => events.push(command),
+  });
+  assert.deepEqual(events, ['signing', 'trunk']);
+});
+
+test('nested Android release hooks configure signing even when the frontend is already built', () => {
+  const events = [];
+  capture({
+    env: { TAURI_ENV_PLATFORM: 'android', TAURI_TEMPLATE_FRONTEND_READY: '1' },
+    configureAndroid: () => events.push('signing'),
+    run: (command) => events.push(command),
+  });
+  assert.deepEqual(events, ['signing']);
+});
+
+test('Android debug and iOS hooks do not configure Android release signing', () => {
+  for (const env of [
+    { TAURI_ENV_PLATFORM: 'android', TAURI_ENV_DEBUG: 'true' },
+    { TAURI_ENV_PLATFORM: 'ios' },
+  ]) {
+    const { commands } = capture({
+      env,
+      configureAndroid: () => assert.fail('release signing must not run'),
+    });
+    assert.deepEqual(commands.map(({ command }) => command), ['trunk']);
+  }
+});
+
+test('an Android signing failure stops the hook before the frontend and preserves its error', () => {
+  const commands = [];
+  const failure = new Error('no persistent Android signing key');
+  assert.throws(() => capture({
+    env: { TAURI_ENV_PLATFORM: 'android' },
+    configureAndroid: () => { throw failure; },
+    run: (command) => commands.push(command),
+  }), (error) => error === failure);
+  assert.deepEqual(commands, []);
 });

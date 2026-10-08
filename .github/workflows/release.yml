@@ -7,7 +7,7 @@ name: 'release'
 #   - Windows aarch64 (cross-compiled from windows-latest)
 #   - macOS   x86_64  (cross-compiled from macos-latest / Apple silicon)
 #   - macOS   aarch64 (Apple Silicon, native macos-latest)
-#   - Android aarch64 (unsigned APK and AAB, native ubuntu-22.04)
+#   - Android aarch64 (signed APK and AAB, native ubuntu-22.04)
 #   - iOS     aarch64 (unsigned IPA, native macos-latest)
 #
 # Pushing a tag like `v1.2.3` builds every target, attaches the packages to a
@@ -144,11 +144,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Android aarch64 (unsigned)
+          - name: Android aarch64 (signed)
             platform: ubuntu-22.04
             mobile: android
             rust_targets: wasm32-unknown-unknown,aarch64-linux-android
-            artifact: android-aarch64-unsigned
+            artifact: android-aarch64-signed
             artifacts: |
               src-tauri/gen/android/app/build/outputs/apk/**/*.apk
               src-tauri/gen/android/app/build/outputs/bundle/**/*.aab
@@ -226,9 +226,45 @@ jobs:
       - name: Initialize mobile project
         run: npm run tauri -- ${{ matrix.mobile }} init --ci --skip-targets-install
 
+      - name: Restore Android signing key
+        if: matrix.mobile == 'android'
+        env:
+          ANDROID_KEY_BASE64: ${{ secrets.ANDROID_KEY_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+        run: |
+          for variable in ANDROID_KEY_BASE64 ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD ANDROID_STORE_PASSWORD; do
+            if [[ -z "${!variable}" ]]; then
+              echo "::error::Missing $variable. Run npm run android:signing:github locally to configure signing."
+              exit 1
+            fi
+          done
+          umask 077
+          printf '%s' "$ANDROID_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/android-release.jks"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/android-release.jks" >> "$GITHUB_ENV"
+
       - name: Build Android APK and AAB
         if: matrix.mobile == 'android'
+        env:
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
         run: npm run build:android -- --ci --target aarch64 --apk --aab
+
+      - name: Verify Android signatures
+        if: matrix.mobile == 'android'
+        run: |
+          mapfile -d '' apks < <(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*.apk' -print0)
+          mapfile -d '' bundles < <(find src-tauri/gen/android/app/build/outputs/bundle -type f -name '*.aab' -print0)
+          (( ${#apks[@]} > 0 && ${#bundles[@]} > 0 ))
+          for apk in "${apks[@]}"; do
+            "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose "$apk"
+          done
+          for bundle in "${bundles[@]}"; do
+            jarsigner -J-Duser.language=en -J-Duser.country=US -verify "$bundle" > "$RUNNER_TEMP/aab-verification.txt"
+            grep -Fq 'jar verified.' "$RUNNER_TEMP/aab-verification.txt"
+          done
 
       - name: Build unsigned iOS IPA
         if: matrix.mobile == 'ios'
@@ -256,7 +292,7 @@ jobs:
       - name: Download mobile bundles
         uses: actions/download-artifact@v4
         with:
-          pattern: '*-unsigned'
+          pattern: '*-aarch64-*'
           path: mobile-artifacts
 
       - name: Upload mobile release assets

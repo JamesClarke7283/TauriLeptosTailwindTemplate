@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { configureAndroidSigning } from './android-signing.mjs';
 
 const projectRoot = fileURLToPath(new URL('../', import.meta.url));
 
@@ -23,9 +24,14 @@ export function beforeBuild({
   run = runCommand,
   exists = existsSync,
   log = console.log,
+  configureAndroid = configureAndroidSigning,
 } = {}) {
   const mobile = ['android', 'ios'].includes(env.TAURI_ENV_PLATFORM);
   const debug = env.TAURI_ENV_DEBUG === 'true';
+
+  if (env.TAURI_ENV_PLATFORM === 'android' && !debug) {
+    configureAndroid({ env });
+  }
 
   // Nested mobile builds reuse the frontend just built by their desktop parent.
   if (!mobile || env.TAURI_TEMPLATE_FRONTEND_READY !== '1') {

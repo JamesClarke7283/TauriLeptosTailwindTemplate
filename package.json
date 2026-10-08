@@ -4,7 +4,9 @@
     "tauri": "tauri",
     "build": "tauri build",
     "build:android": "tauri android build",
-    "build:ios": "tauri ios build"
+    "build:ios": "tauri ios build",
+    "android:signing:init": "node scripts/android-signing.mjs init",
+    "android:signing:github": "node scripts/android-signing.mjs github"
   },
   "devDependencies": {
     "@tauri-apps/cli": "2.12.1",

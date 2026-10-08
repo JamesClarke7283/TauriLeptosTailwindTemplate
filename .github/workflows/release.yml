@@ -6,6 +6,8 @@ name: 'release'
 #   - Windows x86_64  (native windows-latest)
 #   - Windows aarch64 (cross-compiled from windows-latest)
 #   - macOS   x86_64  (cross-compiled from macos-latest / Apple silicon)
+#   - Android aarch64 (unsigned APK and AAB, native ubuntu-22.04)
+#   - iOS     aarch64 (unsigned IPA, native macos-latest)
 #
 # Pushing a tag like `v1.2.3` builds every target and publishes a *draft*
 # GitHub Release with the installers attached. A manual run (workflow_dispatch)
@@ -80,6 +82,9 @@ jobs:
           node-version: lts/*
           cache: 'npm'
 
+      - name: Install npm dependencies
+        run: npm ci
+
       # The Trunk pre_build hook (Tailwind v4) and the tauri-sys crate need
       # these on the global npm root; the hook resolves them via NODE_PATH.
       - name: Install global npm tools (Tailwind + esbuild)
@@ -124,3 +129,128 @@ jobs:
           path: |
             target/**/release/bundle/**
             target/release/bundle/**
+
+  build-mobile:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Android aarch64 (unsigned)
+            platform: ubuntu-22.04
+            mobile: android
+            rust_targets: wasm32-unknown-unknown,aarch64-linux-android
+            artifact: android-aarch64-unsigned
+            artifacts: |
+              src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+              src-tauri/gen/android/app/build/outputs/bundle/**/*.aab
+
+          - name: iOS aarch64 (unsigned)
+            platform: macos-latest
+            mobile: ios
+            rust_targets: wasm32-unknown-unknown,aarch64-apple-ios
+            artifact: ios-aarch64-unsigned
+            artifacts: src-tauri/gen/apple/build/arm64/*.ipa
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'npm'
+
+      # The locked CLI supports `ios build --no-sign`, so compilation needs
+      # no Apple certificates, provisioning profiles, or development team.
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Install global npm tools (Tailwind + esbuild)
+        run: npm install --global tailwindcss @tailwindcss/cli esbuild
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_targets }}
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+          key: ${{ matrix.artifact }}
+
+      - name: Install Trunk
+        uses: taiki-e/install-action@v2
+        with:
+          tool: trunk
+
+      - name: Setup Java
+        if: matrix.mobile == 'android'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Android SDK
+        if: matrix.mobile == 'android'
+        uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+
+      # Match the SDK used by the pinned Tauri CLI's generated Gradle project.
+      - name: Install Android SDK and NDK
+        if: matrix.mobile == 'android'
+        env:
+          NDK_VERSION: '28.2.13676358'
+        run: |
+          sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;37.0.0" "ndk;$NDK_VERSION"
+          echo "NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+
+      - name: Install iOS tools
+        if: matrix.mobile == 'ios'
+        run: brew install xcodegen cocoapods libimobiledevice
+
+      # Generated native projects are ignored in this template. Initialize
+      # them on each runner after installing that platform's toolchain.
+      - name: Initialize mobile project
+        run: npm run tauri -- ${{ matrix.mobile }} init --ci --skip-targets-install
+
+      - name: Build Android APK and AAB
+        if: matrix.mobile == 'android'
+        run: npm run build:android -- --ci --target aarch64 --apk --aab
+
+      - name: Build unsigned iOS IPA
+        if: matrix.mobile == 'ios'
+        run: npm run build:ios -- --ci --target aarch64 --no-sign
+
+      - name: Upload mobile bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          if-no-files-found: error
+          path: ${{ matrix.artifacts }}
+
+  release-mobile:
+    name: Attach mobile bundles to draft release
+    if: startsWith(github.ref, 'refs/tags/')
+    # Desktop tauri-action creates the shared draft release before uploading.
+    needs: [build, build-mobile]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Download mobile bundles
+        uses: actions/download-artifact@v4
+        with:
+          pattern: '*-unsigned'
+          path: mobile-artifacts
+
+      - name: Upload mobile release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          mapfile -d '' assets < <(find mobile-artifacts -type f \( -name '*.apk' -o -name '*.aab' -o -name '*.ipa' \) -print0)
+          gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber

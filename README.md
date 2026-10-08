@@ -149,9 +149,9 @@ debugging enabled and run `adb install -r /path/to/app.apk` to see the exact
 reason. A signature mismatch means an installed copy uses another key. Use its
 original key to update it; uninstalling that copy removes its app data.
 
-The template starts at version `0.0.1` because Android requires a positive
-version code. Keep the versions in `src-tauri/tauri.conf.json` and
-`src-tauri/Cargo.toml` in sync when releasing.
+Android requires a positive version code. Keep the versions in
+`src-tauri/tauri.conf.json` and `src-tauri/Cargo.toml` in sync with the release
+tag when releasing, and increase the version for each update.
 
 ### iOS (macOS only)
 

@@ -128,19 +128,28 @@ and App Store distribution require [iOS signing](https://v2.tauri.app/distribute
 
 ### GitHub Actions
 
-The `release` workflow builds the desktop targets plus Android and iOS:
+The `release` workflow builds all eight platform/architecture combinations:
 
-| Target | Runner | Mobile artifacts |
+| Target | Runner | Release artifacts |
 | --- | --- | --- |
+| Linux x86_64 and ARM64 | Ubuntu | AppImage, DEB and RPM |
+| Windows x86_64 and ARM64 | Windows | MSI |
+| macOS Intel x86_64 and Apple Silicon ARM64 | macOS | DMG and app archives |
 | Android ARM64 | Ubuntu | Unsigned release APK and AAB |
 | iOS ARM64 | macOS with Xcode | Unsigned release IPA |
 
-Run it manually from the Actions tab to download workflow artifacts, or push a
-`v*` tag to attach all bundles to a draft GitHub Release. Mobile compilation
-does not require signing secrets. CI installs the SDKs and Rust targets, then
-initializes each native project before building. The generated projects under
-`src-tauri/gen/` are ignored by this template; keep any native customization in
-version control and update the initialization step if you start maintaining them.
+Run it manually on a branch from the Actions tab to download workflow artifacts,
+or push a `v*` tag to publish all packages on the GitHub Releases page. Tag builds attach
+desktop packages to a draft release while building. After every platform build
+succeeds, the final job attaches the APK, AAB and IPA, then automatically
+publishes the completed release. A failed build or upload leaves it unpublished.
+The Intel and Apple Silicon macOS packages have separate architecture names.
+
+Mobile compilation does not require signing secrets. CI installs the SDKs and
+Rust targets, then initializes each native project before building. The generated
+projects under `src-tauri/gen/` are ignored by this template; keep any native
+customization in version control and update the initialization step if you start
+maintaining them.
 Desktop CI jobs set `TAURI_BUILD_MOBILE=false` because the mobile jobs create
 their packages separately on the appropriate runners.
 

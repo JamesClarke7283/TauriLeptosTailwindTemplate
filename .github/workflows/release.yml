@@ -6,12 +6,13 @@ name: 'release'
 #   - Windows x86_64  (native windows-latest)
 #   - Windows aarch64 (cross-compiled from windows-latest)
 #   - macOS   x86_64  (cross-compiled from macos-latest / Apple silicon)
+#   - macOS   aarch64 (Apple Silicon, native macos-latest)
 #   - Android aarch64 (unsigned APK and AAB, native ubuntu-22.04)
 #   - iOS     aarch64 (unsigned IPA, native macos-latest)
 #
-# Pushing a tag like `v1.2.3` builds every target and publishes a *draft*
-# GitHub Release with the installers attached. A manual run (workflow_dispatch)
-# just builds and uploads the bundles as workflow artifacts.
+# Pushing a tag like `v1.2.3` builds every target, attaches the packages to a
+# draft GitHub Release, then publishes it after all builds and uploads succeed.
+# A manual run (workflow_dispatch) from a branch only uploads workflow artifacts.
 
 on:
   push:
@@ -57,6 +58,11 @@ jobs:
             platform: macos-latest
             args: '--target x86_64-apple-darwin'
             rust_targets: wasm32-unknown-unknown,x86_64-apple-darwin
+
+          - name: macOS aarch64
+            platform: macos-latest
+            args: '--target aarch64-apple-darwin'
+            rust_targets: wasm32-unknown-unknown,aarch64-apple-darwin
 
     runs-on: ${{ matrix.platform }}
 
@@ -127,7 +133,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
-          if-no-files-found: warn
+          if-no-files-found: error
           path: |
             target/**/release/bundle/**
             target/release/bundle/**
@@ -235,12 +241,17 @@ jobs:
           if-no-files-found: error
           path: ${{ matrix.artifacts }}
 
-  release-mobile:
-    name: Attach mobile bundles to draft release
+  publish-release:
+    name: Publish GitHub release
     if: startsWith(github.ref, 'refs/tags/')
-    # Desktop tauri-action creates the shared draft release before uploading.
+    # Desktop tauri-action uploads to a shared draft. Publish only after every
+    # desktop/mobile build succeeds and all mobile assets have been attached.
     needs: [build, build-mobile]
     runs-on: ubuntu-22.04
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ github.ref_name }}
     steps:
       - name: Download mobile bundles
         uses: actions/download-artifact@v4
@@ -249,10 +260,17 @@ jobs:
           path: mobile-artifacts
 
       - name: Upload mobile release assets
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          mapfile -d '' assets < <(find mobile-artifacts -type f \( -name '*.apk' -o -name '*.aab' -o -name '*.ipa' \) -print0)
+          assets=()
+          for extension in apk aab ipa; do
+            mapfile -d '' packages < <(find mobile-artifacts -type f -name "*.$extension" -print0)
+            if (( ${#packages[@]} == 0 )); then
+              echo "::error::Missing mobile release asset: .$extension"
+              exit 1
+            fi
+            assets+=("${packages[@]}")
+          done
           gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
+
+      - name: Publish completed release
+        run: gh release edit "$RELEASE_TAG" --draft=false

@@ -133,13 +133,13 @@ pub fn SimpleCounter(name: String) -> impl IntoView {
     let (greet_event_msg, set_greet_event_msg) =
         signal("No `greet-event` from Tauri.".to_string());
     let greet_event_resource = AsyncDerived::new_unsync(move || listen_on_greet_event());
-    let greet_event_msg_memo = Memo::new(move |_| {
+    Effect::new(move |_| {
         set_greet_event_msg.set(
             greet_event_resource
                 .get()
                 .unwrap_or("Waiting for `greet-event` from Tauri.".to_string()),
         );
-    });Effect::new(move |_| greet_event_msg_memo);
+    });
     // Generic event, listening constantly.
     let (event_counter, set_event_counter) = signal(1u16);
     let (event_vec, set_event_vec) = signal::<Vec<GenericEventRes>>(vec![]);

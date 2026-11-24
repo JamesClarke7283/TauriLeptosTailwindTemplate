@@ -4,10 +4,10 @@ use std::{ffi::OsStr, fs};
 fn desktop(host: &'static str) -> Build {
     Build {
         platform: host.to_owned(),
-        host,
         debug: false,
         frontend_ready: false,
-        build_mobile: false,
+        build_android: true,
+        build_ios: false,
     }
 }
 
@@ -21,18 +21,21 @@ fn command_line(command: &Command) -> String {
 }
 
 #[test]
-fn regular_desktop_builds_only_build_the_frontend() {
+fn desktop_builds_can_opt_out_of_android() {
     for host in ["linux", "windows", "macos"] {
-        desktop(host)
-            .run(
-                Path::new("."),
-                |command| {
-                    assert_eq!(command_line(command), "trunk build --release");
-                    Ok(())
-                },
-                |_| panic!("desktop builds do not sign Android bundles"),
-            )
-            .unwrap();
+        Build {
+            build_android: false,
+            ..desktop(host)
+        }
+        .run(
+            Path::new("."),
+            |command| {
+                assert_eq!(command_line(command), "trunk build --release");
+                Ok(())
+            },
+            |_| panic!("desktop builds do not sign Android bundles"),
+        )
+        .unwrap();
     }
 }
 
@@ -46,7 +49,7 @@ fn opt_in_initializes_missing_projects_and_builds_the_supported_bundles() {
 
     for host in ["linux", "windows", "macos"] {
         let build = Build {
-            build_mobile: true,
+            build_ios: host == "macos",
             debug: true,
             ..desktop(host)
         };
@@ -95,7 +98,7 @@ fn mobile_hooks_never_recurse_and_sign_android_release_before_the_frontend() {
                     platform: platform.to_owned(),
                     debug,
                     frontend_ready,
-                    build_mobile: true,
+                    build_ios: true,
                     ..desktop("macos")
                 };
                 let signed = std::cell::Cell::new(false);
@@ -130,15 +133,12 @@ fn mobile_hooks_never_recurse_and_sign_android_release_before_the_frontend() {
 }
 
 #[test]
-fn stops_at_the_first_failed_command() {
+fn android_failures_allow_the_desktop_build_to_continue() {
     let temp = tempfile::tempdir().unwrap();
-    let build = Build {
-        build_mobile: true,
-        ..desktop("macos")
-    };
-    for fail_at in 1..=4 {
+    let build = desktop("macos");
+    for fail_at in 2..=4 {
         let mut count = 0;
-        let error = build
+        build
             .run(
                 temp.path(),
                 |_| {
@@ -148,8 +148,33 @@ fn stops_at_the_first_failed_command() {
                 },
                 |_| panic!("desktop builds do not sign Android bundles"),
             )
-            .unwrap_err();
+            .unwrap();
         assert_eq!(count, fail_at);
-        assert_eq!(error.to_string(), "command failed");
     }
+}
+
+#[test]
+fn frontend_and_explicit_android_signing_failures_still_propagate() {
+    let root = Path::new(".");
+    let error = desktop("linux")
+        .run(
+            root,
+            |_| anyhow::bail!("frontend failed"),
+            |_| panic!("unexpected signing"),
+        )
+        .unwrap_err();
+    assert_eq!(error.to_string(), "frontend failed");
+
+    let android = Build {
+        platform: "android".into(),
+        ..desktop("linux")
+    };
+    let error = android
+        .run(
+            root,
+            |_| panic!("unexpected build command"),
+            |_| anyhow::bail!("signing failed"),
+        )
+        .unwrap_err();
+    assert_eq!(error.to_string(), "signing failed");
 }

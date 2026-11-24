@@ -1,6 +1,6 @@
 use std::{env, path::Path, process::Command};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 use crate::{android_signing, run};
 
@@ -8,19 +8,24 @@ const FRONTEND_READY: &str = "TAURI_TEMPLATE_FRONTEND_READY";
 
 struct Build {
     platform: String,
-    host: &'static str,
     debug: bool,
     frontend_ready: bool,
-    build_mobile: bool,
+    build_android: bool,
+    build_ios: bool,
 }
 
 pub fn before_build(root: &Path) -> Result<()> {
+    let mobile = env::var_os("TAURI_BUILD_MOBILE");
+    let all_mobile = matches!(
+        mobile.as_deref().and_then(|value| value.to_str()),
+        Some("true" | "1")
+    );
     let build = Build {
         platform: env::var("TAURI_ENV_PLATFORM").unwrap_or_default(),
-        host: env::consts::OS,
         debug: env::var("TAURI_ENV_DEBUG").as_deref() == Ok("true"),
         frontend_ready: env::var(FRONTEND_READY).as_deref() == Ok("1"),
-        build_mobile: matches!(env::var("TAURI_BUILD_MOBILE").as_deref(), Ok("true" | "1")),
+        build_android: mobile.is_none() || all_mobile,
+        build_ios: all_mobile && env::consts::OS == "macos",
     };
     build.run(root, run, android_signing::configure)
 }
@@ -46,19 +51,21 @@ impl Build {
             }
             run(&mut trunk)?;
         }
-        if mobile || !self.build_mobile {
+        if mobile {
             return Ok(());
         }
 
-        println!("Building Android APK/AAB (ARM64)...");
-        self.build_mobile(root, ANDROID, &mut run)?;
-        if self.host == "macos" {
+        if self.build_android {
+            println!("Building Android APK/AAB (ARM64)...");
+            if let Err(error) = self.build_mobile(root, ANDROID, &mut run) {
+                eprintln!(
+                    "Warning: skipping Android bundles and continuing the desktop build: {error:#}"
+                );
+            }
+        }
+        if self.build_ios {
             println!("Building iOS IPA (ARM64)...");
             self.build_mobile(root, IOS, &mut run)?;
-        } else {
-            println!(
-                "iOS IPA requires macOS and Xcode. Use this command on macOS or the GitHub iOS build job."
-            );
         }
         Ok(())
     }
@@ -71,7 +78,8 @@ impl Build {
     ) -> Result<()> {
         run(Command::new("rustup")
             .current_dir(root)
-            .args(["target", "add", mobile.target]))?;
+            .args(["target", "add", mobile.target]))
+        .with_context(|| format!("could not install Rust target {}", mobile.target))?;
 
         let tauri = || {
             let mut command = Command::new("cargo");
@@ -84,7 +92,8 @@ impl Build {
             command
         };
         if !root.join(mobile.marker).exists() {
-            run(tauri().args(["init", "--ci", "--skip-targets-install"]))?;
+            run(tauri().args(["init", "--ci", "--skip-targets-install"]))
+                .with_context(|| format!("could not initialize the {} project", mobile.platform))?;
         }
         let mut build = tauri();
         build
@@ -93,7 +102,7 @@ impl Build {
         if self.debug {
             build.arg("--debug");
         }
-        run(&mut build)
+        run(&mut build).with_context(|| format!("{} packaging failed", mobile.platform))
     }
 }
 

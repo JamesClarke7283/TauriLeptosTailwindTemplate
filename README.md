@@ -38,15 +38,19 @@ cargo tauri dev
 cargo tauri build
 ```
 
-The default build compiles the Leptos frontend and packages the desktop
-application. The Android SDK, NDK, Java, and signing credentials are optional
-and are only needed for Android builds. iOS packaging requires macOS and Xcode.
+The default build compiles the Leptos frontend, attempts an ARM64 Android
+APK and AAB, then packages the desktop application. If Android setup or
+packaging fails, the build warns and continues with desktop packaging. The
+Android SDK, NDK, Java, and signing credentials are optional for desktop builds.
+Use `TAURI_BUILD_MOBILE=false cargo tauri build` to skip the Android attempt.
+In PowerShell, set `$env:TAURI_BUILD_MOBILE = 'false'` before building.
 
-To also package Android and, on macOS, iOS in the same command, install the
-mobile prerequisites below and run `TAURI_BUILD_MOBILE=true cargo tauri build`
-in Bash. In PowerShell, set `$env:TAURI_BUILD_MOBILE = 'true'` before building.
+To include iOS on macOS, install the iOS prerequisites below and run
+`TAURI_BUILD_MOBILE=true cargo tauri build` in Bash. In PowerShell, set
+`$env:TAURI_BUILD_MOBILE = 'true'` before building.
 The hook installs the ARM64 Rust targets and initializes missing native projects.
 Passing `--debug` applies to every bundle built by the command.
+Explicit `cargo tauri android build` commands still exit with an error if Android packaging fails.
 
 If you generated a native project with the old npm CLI, back up any native
 customizations, move that platform's directory out of `src-tauri/gen/`, and

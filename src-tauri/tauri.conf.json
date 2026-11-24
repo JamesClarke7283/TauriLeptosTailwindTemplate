@@ -18,7 +18,7 @@
     "withGlobalTauri": true
   },
   "build": {
-    "beforeBuildCommand": "node scripts/build.mjs",
+    "beforeBuildCommand": "cargo xtask before-build",
     "beforeDevCommand": "trunk serve",
     "devUrl": "http://localhost:1420",
     "frontendDist": "../src-ui/dist"

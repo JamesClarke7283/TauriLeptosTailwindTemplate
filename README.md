@@ -9,81 +9,49 @@
 
 See [Prerequisites](#prerequisites) section.
 
-```sh
-# Install the locked Tauri CLI and npm dependencies
-npm ci
-
-# Develop for desktop
-npm run tauri -- dev
-
-# Create the app's private Android signing key (once, after prerequisites)
-npm run android:signing:init
-
-# Build desktop and Android packages (also iOS on macOS)
-npm run build
-```
-
 ## Prerequisites
 
+The build uses Trunk from `PATH`. Install any missing Rust build tools with Cargo.
+
 ```sh
-# Tauri CLI (installed locally from package-lock.json)
-npm ci
-
-# Rust stable (required by Leptos)
-rustup toolchain install stable --allow-downgrade
-
-# WASM target
-rustup target add wasm32-unknown-unknown
-
-# Trunk WASM bundler
-cargo install --locked trunk
-
-# `wasm-bindgen` for Apple M1 chips (required by Trunk)
-cargo install --locked wasm-bindgen-cli
-
-# `esbuild` as dependency of `tauri-sys` crate (used in UI)
-npm install --global --save-exact esbuild
-
-# Tailwind CSS CLI (required by the Trunk build hook)
-npm install --global tailwindcss @tailwindcss/cli
+cargo install --locked tauri-cli --version '=2.12.1'
+cargo install --locked trunk --version '=0.22.2'
 ```
 
-Also install the [Tauri system prerequisites](https://v2.tauri.app/start/prerequisites/)
-for your operating system. The npm scripts use the pinned Tauri CLI, including
-support for unsigned iOS builds.
-Install the Android prerequisites and configure signing below before using the
-default release build command.
-On macOS, also install the iOS prerequisites to generate all three platforms.
-If you prefer `cargo tauri build`, install the matching Cargo CLI with
-`cargo install tauri-cli --version '=2.12.1' --locked`.
+Install Rust via rustup and the [Tauri desktop system prerequisites](https://v2.tauri.app/start/prerequisites/)
+for your operating system. `rust-toolchain.toml` specifies Rust stable and the
+`wasm32-unknown-unknown` target. Trunk uses the Tailwind CSS v4 CLI from
+`PATH` when available and fetches the standalone CLI when needed.
+Node.js and npm are unnecessary.
 
 ## Running
 
 ### Run in Dev mode
 
 ```bash
-npm run tauri -- dev
+cargo tauri dev
 ```
 
 ### Build in Production
 
 ```bash
-npm run build
+cargo tauri build
 ```
 
-The same build runs with `npm run tauri -- build` or `cargo tauri build`.
-Tauri's build hook builds the Leptos frontend, installs the ARM64 Rust targets,
-and initializes missing native projects. It creates an Android APK and AAB,
-then an unsigned iOS IPA on macOS, before Tauri builds the desktop application.
-The default build uses release mode; `--debug` also applies to the mobile builds.
+The default build compiles the Leptos frontend and packages the desktop
+application. The Android SDK, NDK, Java, and signing credentials are optional
+and are only needed for Android builds. iOS packaging requires macOS and Xcode.
 
-iOS packaging requires macOS and Xcode. On Linux and Windows, the command
-creates desktop and Android packages and reports that iOS needs macOS.
-The GitHub workflow builds iOS on its macOS runner.
+To also package Android and, on macOS, iOS in the same command, install the
+mobile prerequisites below and run `TAURI_BUILD_MOBILE=true cargo tauri build`
+in Bash. In PowerShell, set `$env:TAURI_BUILD_MOBILE = 'true'` before building.
+The hook installs the ARM64 Rust targets and initializes missing native projects.
+Passing `--debug` applies to every bundle built by the command.
 
-For a desktop-only build without an Android SDK, use
-`TAURI_BUILD_MOBILE=false npm run build` in Bash, or set
-`$env:TAURI_BUILD_MOBILE = 'false'` before building in PowerShell.
+If you generated a native project with the old npm CLI, back up any native
+customizations, move that platform's directory out of `src-tauri/gen/`, and
+rerun its Cargo init command below. Reapply your customizations to the newly
+generated project so its Gradle or Xcode build calls `cargo tauri`.
 
 ### Android
 
@@ -97,13 +65,13 @@ sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;37.0.0" "ndk;2
 export NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358"
 
 # Create this app's private release signing key (once)
-npm run android:signing:init
+cargo xtask android-signing init
 
 # Generate the native project and install Android Rust targets (once)
-npm run tauri -- android init
+cargo tauri android init
 
 # Build release APK and AAB for ARM64 devices
-npm run build:android -- --ci --target aarch64 --apk --aab
+cargo tauri android build --ci --target aarch64 --apk --aab
 ```
 
 The signed APK and AAB are under `src-tauri/gen/android/app/build/outputs/apk/`
@@ -122,7 +90,7 @@ keys/
 
 The entire `keys/` directory is excluded by `.gitignore`; do not commit or share
 these files. Back up both files securely: future updates must use the same key.
-Running `npm run android:signing:init` again preserves an existing key.
+Running `cargo xtask android-signing init` again preserves an existing key.
 Release builds automatically load these credentials and fail clearly if signing
 is missing. Debug builds use Android's debug signing instead.
 
@@ -135,7 +103,7 @@ These environment variables override the generated local credentials. See
 To use the same key in GitHub Actions, authenticate the GitHub CLI (`gh`) and run:
 
 ```sh
-npm run android:signing:github
+cargo xtask android-signing github
 ```
 
 This stores `ANDROID_KEY_BASE64`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`,
@@ -163,10 +131,10 @@ developer directory, and follow the
 brew install xcodegen cocoapods libimobiledevice
 
 # Generate the native project and install iOS Rust targets (once)
-npm run tauri -- ios init
+cargo tauri ios init
 
 # Build an unsigned release IPA for ARM64 iOS devices
-npm run build:ios -- --ci --target aarch64 --no-sign
+cargo tauri ios build --ci --target aarch64 --no-sign
 ```
 
 The IPA is under `src-tauri/gen/apple/build/arm64/`. This compiles without an
@@ -199,8 +167,6 @@ CI installs the SDKs and Rust targets, then initializes each native project befo
 building. The generated projects under `src-tauri/gen/` are ignored by this
 template; keep any native customization in version control and update the
 initialization step if you start maintaining them.
-Desktop CI jobs set `TAURI_BUILD_MOBILE=false` because the mobile jobs create
-their packages separately on the appropriate runners.
 
 ## Credits
 

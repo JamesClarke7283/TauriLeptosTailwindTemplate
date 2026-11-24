@@ -82,20 +82,6 @@ jobs:
             patchelf \
             file
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-          cache: 'npm'
-
-      - name: Install npm dependencies
-        run: npm ci
-
-      # The Trunk pre_build hook (Tailwind v4) and the tauri-sys crate need
-      # these on the global npm root; the hook resolves them via NODE_PATH.
-      - name: Install global npm tools (Tailwind + esbuild)
-        run: npm install --global tailwindcss @tailwindcss/cli esbuild
-
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -108,24 +94,22 @@ jobs:
           workspaces: '. -> target'
           key: ${{ matrix.name }}
 
-      # Trunk bundles the Leptos WASM frontend (runs as Tauri's beforeBuildCommand).
-      - name: Install Trunk
-        uses: taiki-e/install-action@v2
-        with:
-          tool: trunk
+      - name: Install build tools
+        run: |
+          cargo install --locked tauri-cli --version '=2.12.1'
+          cargo install --locked trunk --version '=0.22.2'
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # The mobile matrix builds its own packages on the required hosts.
-          TAURI_BUILD_MOBILE: 'false'
         with:
           # On a tag push -> create a draft release; otherwise just build.
           tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
           releaseName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
           releaseDraft: true
           prerelease: false
+          tauriScript: cargo tauri
           args: ${{ matrix.args }}
 
       # Always expose the installers as workflow artifacts (handy for manual runs).
@@ -165,20 +149,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-          cache: 'npm'
-
-      # The locked CLI supports `ios build --no-sign`, so compilation needs
-      # no Apple certificates, provisioning profiles, or development team.
-      - name: Install npm dependencies
-        run: npm ci
-
-      - name: Install global npm tools (Tailwind + esbuild)
-        run: npm install --global tailwindcss @tailwindcss/cli esbuild
-
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -190,10 +160,10 @@ jobs:
           workspaces: '. -> target'
           key: ${{ matrix.artifact }}
 
-      - name: Install Trunk
-        uses: taiki-e/install-action@v2
-        with:
-          tool: trunk
+      - name: Install build tools
+        run: |
+          cargo install --locked tauri-cli --version '=2.12.1'
+          cargo install --locked trunk --version '=0.22.2'
 
       - name: Setup Java
         if: matrix.mobile == 'android'
@@ -224,7 +194,7 @@ jobs:
       # Generated native projects are ignored in this template. Initialize
       # them on each runner after installing that platform's toolchain.
       - name: Initialize mobile project
-        run: npm run tauri -- ${{ matrix.mobile }} init --ci --skip-targets-install
+        run: cargo tauri ${{ matrix.mobile }} init --ci --skip-targets-install
 
       - name: Restore Android signing key
         if: matrix.mobile == 'android'
@@ -236,7 +206,7 @@ jobs:
         run: |
           for variable in ANDROID_KEY_BASE64 ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD ANDROID_STORE_PASSWORD; do
             if [[ -z "${!variable}" ]]; then
-              echo "::error::Missing $variable. Run npm run android:signing:github locally to configure signing."
+              echo "::error::Missing $variable. Run cargo xtask android-signing github locally to configure signing."
               exit 1
             fi
           done
@@ -250,7 +220,7 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
-        run: npm run build:android -- --ci --target aarch64 --apk --aab
+        run: cargo tauri android build --ci --target aarch64 --apk --aab
 
       - name: Verify Android signatures
         if: matrix.mobile == 'android'
@@ -268,7 +238,7 @@ jobs:
 
       - name: Build unsigned iOS IPA
         if: matrix.mobile == 'ios'
-        run: npm run build:ios -- --ci --target aarch64 --no-sign
+        run: cargo tauri ios build --ci --target aarch64 --no-sign
 
       - name: Upload mobile bundles
         uses: actions/upload-artifact@v4

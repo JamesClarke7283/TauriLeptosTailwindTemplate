@@ -157,6 +157,9 @@ The `release` workflow builds all eight platform/architecture combinations:
 | Android ARM64 | Ubuntu | Signed release APK and AAB |
 | iOS ARM64 | macOS with Xcode | Unsigned release IPA |
 
+Branch pushes that change the app, build tooling, or release workflow build
+Android and iOS and upload their packages as Actions artifacts.
+
 Run it manually on a branch from the Actions tab to download workflow artifacts,
 or push a `v*` tag to publish all packages on the GitHub Releases page. Tag builds attach
 desktop packages to a draft release while building. After every platform build
